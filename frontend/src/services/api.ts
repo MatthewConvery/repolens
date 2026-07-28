@@ -12,7 +12,7 @@ export async function fetchHealth(): Promise<HealthResponse> {
     return response.json() as Promise<HealthResponse>;
 }
 
-export type UploadResponse = {
+export type RepositoryScanResponse = {
     filename: string;
     files: number;
     folders: number;
@@ -22,7 +22,7 @@ export type UploadResponse = {
 
 export async function uploadRepository(
     file: File
-): Promise<UploadResponse> {
+): Promise<RepositoryScanResponse> {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -39,5 +39,5 @@ export async function uploadRepository(
         );
     }
 
-    return response.json() as Promise<UploadResponse>;
+    return response.json() as Promise<RepositoryScanResponse>;
 }

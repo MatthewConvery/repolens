@@ -9,7 +9,9 @@ MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024
 router = APIRouter(prefix="/upload", tags=["uploads"])
 
 @router.post("", response_model=RepositoryScanResponse)
-async def upload_repository(file: UploadFile = File(...)) -> dict:
+async def upload_repository(
+    file: UploadFile = File(...),
+) -> RepositoryScanResponse:
     filename = file.filename or "repository.zip"
 
     if Path(filename).suffix.lower() != ".zip":
@@ -41,10 +43,10 @@ async def upload_repository(file: UploadFile = File(...)) -> dict:
 
             statistics = scan_repository(extraction_path)
 
-            return {
-                "filename": filename,
+            return RepositoryScanResponse(
+                filename=filename,
                 **statistics
-            }
+            )
 
     except BadZipFile as error:
         raise HTTPException(
