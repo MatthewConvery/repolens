@@ -14,9 +14,10 @@ export async function fetchHealth(): Promise<HealthResponse> {
 
 export type UploadResponse = {
     filename: string;
-    content_type: string;
-    size_bytes: string;
-    status: string;
+    files: number;
+    folders: number;
+    total_size_bytes: number;
+    extension: Record<string, number>;
 };
 
 export async function uploadRepository(
