@@ -10,6 +10,11 @@ class ProjectFiles(BaseModel):
     infrastructure_files: list[str]
     ci_files: list[str]
 
+class TechnologyDetection(BaseModel):
+    frameworks: list[str]
+    build_tools: list[str]
+    infrastructure: list[str]
+
 class RepositoryScanResponse(BaseModel):
     filename: str
     files: int
@@ -19,3 +24,4 @@ class RepositoryScanResponse(BaseModel):
     languages: dict[str, LanguageStatistics]
     primary_language: str | None
     project_files: ProjectFiles
+    technologies: TechnologyDetection

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 from app.services.language_detector import detect_languages
 from app.services.project_file_detector import discover_project_files
+from app.services.framework_detector import detect_frameworks
 
 IGNORED_DIRECTORIES = {
     ".git",
@@ -44,6 +45,7 @@ def scan_repository(repository_path: Path) -> dict[str, Any]:
 
     languages, primary_language = detect_languages(scanned_files)
     project_files = discover_project_files(repository_path)
+    technologies = detect_frameworks(repository_path=repository_path, project_files=project_files)
 
     return {
         "files": file_count,
@@ -52,5 +54,6 @@ def scan_repository(repository_path: Path) -> dict[str, Any]:
         "extensions": dict(extension_counts),
         "languages": languages,
         "primary_language": primary_language,
-        "project_files": project_files
+        "project_files": project_files,
+        "technologies": technologies
     }
