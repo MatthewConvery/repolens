@@ -4,6 +4,8 @@ from typing import Any
 from app.services.language_detector import detect_languages
 from app.services.project_file_detector import discover_project_files
 from app.services.framework_detector import detect_frameworks
+from app.services.dependency_detector import ( detect_dependencies, attach_resolved_versions )
+from app.services.lock_file_detector import detect_resolved_packages
 
 IGNORED_DIRECTORIES = {
     ".git",
@@ -46,6 +48,9 @@ def scan_repository(repository_path: Path) -> dict[str, Any]:
     languages, primary_language = detect_languages(scanned_files)
     project_files = discover_project_files(repository_path)
     technologies = detect_frameworks(repository_path=repository_path, project_files=project_files)
+    dependencies = detect_dependencies(repository_path=repository_path, project_files=project_files)
+    resolved_packages = detect_resolved_packages(repository_path=repository_path, project_files=project_files)
+    dependencies = attach_resolved_versions(dependencies=dependencies, resolved_packages=resolved_packages)
 
     return {
         "files": file_count,
@@ -55,5 +60,7 @@ def scan_repository(repository_path: Path) -> dict[str, Any]:
         "languages": languages,
         "primary_language": primary_language,
         "project_files": project_files,
-        "technologies": technologies
+        "technologies": technologies,
+        "dependencies": dependencies,
+        "resolved_packages": resolved_packages
     }
