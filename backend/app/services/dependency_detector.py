@@ -29,6 +29,7 @@ class DependencyEcosystem(TypedDict):
 class DependencyDetectionResult(TypedDict):
     Python: DependencyEcosystem | None
     JavaScript: DependencyEcosystem | None
+    Go: DependencyEcosystem | None
 
 def detect_dependencies(
         repository_path: Path,
@@ -36,9 +37,11 @@ def detect_dependencies(
 ) -> DependencyDetectionResult:
     python_packages: list[DependencyPackage] = []
     javascript_packages: list[DependencyPackage] = []
+    go_packages: list[DependencyPackage] = []
 
     python_package_managers: set[str] = set()
     javascript_package_managers: set[str] = set()
+    go_package_managers: set[str] = set()
 
     for relative_path_text in project_files["manifests"]:
         manifest_path = repository_path / relative_path_text
@@ -75,8 +78,19 @@ def detect_dependencies(
                 javascript_packages.extend(parsed_packages)
                 javascript_package_managers.add("npm")
 
+        elif filename == "go.mod":
+            parsed_packages = _parse_go_mod_dependencies(
+                manifest_path=manifest_path,
+                source_file=relative_path_text
+            )
+
+            if parsed_packages:
+                go_packages.extend(parsed_packages)
+                go_package_managers.add("go")
+
     python_packages = _deduplicate_packages(python_packages, _normalise_python_package_name)
     javascript_packages = _deduplicate_packages(javascript_packages, _normalise_npm_package_name)
+    go_packages = _deduplicate_packages(go_packages, _normalise_go_module_name)
 
     return {
         "Python": (
@@ -98,7 +112,17 @@ def detect_dependencies(
             }
             if javascript_packages
             else None
-        )
+        ),
+        "Go": (
+            {
+                "package_manager": _resolve_package_manager(
+                    go_package_managers
+                ),
+                "packages": go_packages
+            }
+            if go_packages
+            else None
+        ),
     }
 
 def _resolve_package_manager(
@@ -308,6 +332,10 @@ def attach_resolved_versions(
             package_name = _normalise_python_package_name(
                 resolved_package["name"]
             )
+        elif ecosystem == "go":
+            package_name = _normalise_go_module_name(
+                resolved_package["name"]
+            )
         else:
             package_name = _normalise_npm_package_name(
                 resolved_package["name"]
@@ -322,7 +350,8 @@ def attach_resolved_versions(
 
     ecosystem_dependencies = (
         ("JavaScript", "npm"),
-        ("Python", "python")
+        ("Python", "python"),
+        ("Go", "go")
     )
 
     for dependency_key, ecosystem in ecosystem_dependencies:
@@ -336,6 +365,10 @@ def attach_resolved_versions(
                 package_name = _normalise_python_package_name(
                     package["name"]
                 )
+            elif ecosystem == "go":
+                package_name = _normalise_go_module_name(
+                    package["name"]
+                )
             else:
                 package_name = _normalise_npm_package_name(
                     package["name"]
@@ -347,12 +380,21 @@ def attach_resolved_versions(
 
             requested_version = package["requested_version"]
 
-            if requested_version is not None and requested_version in versions:
-                package["resolved_version"] = requested_version
-            elif len(versions) == 1:
-                package["resolved_version"] = versions[0]
+            if ecosystem == "go":
+                if (
+                    requested_version is not None and requested_version in versions
+                ):
+                    package["resolved_version"] = requested_version
+                else:
+                    package["resolved_version"] = None
+
             else:
-                package["resolved_version"] = None
+                if requested_version is not None and requested_version in versions:
+                    package["resolved_version"] = requested_version
+                elif len(versions) == 1:
+                    package["resolved_version"] = versions[0]
+                else:
+                    package["resolved_version"] = None
 
     return dependencies
 
@@ -532,3 +574,101 @@ def _poetry_dependency_section_to_packages(
         )
 
     return packages
+
+
+def _parse_go_mod_dependencies(
+        manifest_path: Path,
+        source_file: str,
+) -> list[DependencyPackage]:
+    try:
+        content = manifest_path.read_text(
+            encoding="utf-8"
+        )
+
+    except(OSError, UnicodeDecodeError):
+        return []
+
+    packages: list[DependencyPackage] = []
+
+    in_require_block = False
+
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+
+        if not line:
+            continue
+
+        if line.startswith("//"):
+            continue
+
+        if line == "require (":
+            in_require_block = True
+            continue
+
+        if in_require_block and line == ")":
+            in_require_block = False
+            continue
+
+        if in_require_block:
+            package = _parse_go_requirement_line(
+                line=line,
+                source_file=source_file
+            )
+
+            if package is not None:
+                packages.append(package)
+
+            continue
+
+        if line.startswith("require "):
+            requirement = line.removeprefix("require ").strip()
+
+            package = _parse_go_requirement_line(
+                line=requirement,
+                source_file=source_file
+            )
+
+            if package is not None:
+                packages.append(package)
+
+    return _deduplicate_packages(
+        packages,
+        _normalise_go_module_name
+    )
+
+def _parse_go_requirement_line(
+        line: str,
+        source_file: str,
+) -> DependencyPackage | None:
+
+    if "//" in line:
+        dependency_text, _ = line.split(
+            "//",
+            maxsplit=1
+        )
+    else:
+        dependency_text = line
+
+    parts = dependency_text.split()
+
+    if len(parts) < 2:
+        return None
+
+    module_name = parts[0].strip()
+    version = parts[1].strip()
+
+    if not module_name or not version:
+        return None
+
+    return {
+        "name": module_name,
+        "requested_version": version,
+        "resolved_version": None,
+        "scope": "runtime",
+        "source_file": source_file
+    }
+
+def _normalise_go_module_name(
+        package_name: str,
+) -> str:
+    return package_name.strip()

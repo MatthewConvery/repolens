@@ -49,6 +49,13 @@ def detect_resolved_packages(
                 )
             )
 
+        elif filename == "go.sum":
+            parsed_packages = _parse_go_sum(
+                lock_path=lock_file_path,
+                source_file=relative_path_text
+            )
+            resolved_packages.extend(parsed_packages)
+
     return {
         "packages": _deduplicate_resolved_packages(
             resolved_packages
@@ -331,3 +338,55 @@ def _parse_poetry_lock(
         )
 
     return resolved_packages
+
+def _parse_go_sum(
+        lock_path: Path,
+        source_file: str,
+) -> list[ResolvedPackage]:
+    try:
+        content = lock_path.read_text(
+            encoding="utf-8",
+        )
+    except (OSError, UnicodeDecodeError):
+        return []
+
+    packages: list[ResolvedPackage] = []
+    seen: set[tuple[str, str]] = set()
+
+    for raw_line in content.splitlines():
+        line = raw_line.strip()
+
+        if not line:
+            continue
+
+        parts = line.split()
+
+        if len(parts) < 3:
+            continue
+
+        module_name = parts[0].strip()
+        version = parts[1].strip()
+
+        if version.endswith("/go.mod"):
+            version = version.removesuffix("/go.mod")
+
+        key = (
+            module_name,
+            version
+        )
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+
+        packages.append(
+            {
+                "name": module_name,
+                "version": version,
+                "ecosystem": "go",
+                "source_file": source_file
+            }
+        )
+
+    return packages

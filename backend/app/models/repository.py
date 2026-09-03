@@ -37,6 +37,7 @@ class DependencyEcosystemModel(BaseModel):
 class DependencyDetectionModel(BaseModel):
     Python: DependencyEcosystemModel | None = None
     JavaScript: DependencyEcosystemModel | None = None
+    Go: DependencyEcosystemModel | None = None
 
 class ResolvedPackageModel(BaseModel):
     name: str

@@ -20,7 +20,8 @@ MANIFEST_FILENAMES = {
     "go.mod",
     "cargo.toml",
     "composer.json",
-    "gemfile"
+    "gemfile",
+    "go.mod"
 }
 
 INFRASTRUCTURE_FILENAMES = {
@@ -46,6 +47,7 @@ LOCK_FILENAMES = {
     "cargo.lock",
     "composer.lock",
     "gemfile.lock",
+    "go.sum"
 }
 
 def discover_project_files(
